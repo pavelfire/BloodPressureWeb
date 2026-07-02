@@ -10,6 +10,7 @@ import { createReading, deleteReading, listReadings, runSync, updateReading } fr
 import { readingCategory, validateReading } from "../core/validation/validation";
 
 const queryClient = new QueryClient();
+const DEFAULT_API_URL = import.meta.env.VITE_DEFAULT_API_URL || "http://localhost:8080";
 
 const emptyForm = { systolic: "", diastolic: "", pulse: "", note: "" };
 
@@ -24,7 +25,7 @@ function useSession() {
 
 function AppInner() {
   const { session, setSession } = useSession();
-  const [serverUrl, setServerUrl] = useState(localStorage.getItem("bpw_server_url") ?? "http://localhost:8080");
+  const [serverUrl, setServerUrl] = useState(localStorage.getItem("bpw_server_url") ?? DEFAULT_API_URL);
   const [strictValidation, setStrictValidation] = useState(localStorage.getItem("bpw_strict_validation") !== "false");
   const [readings, setReadings] = useState<BloodPressureReading[]>([]);
   const [error, setError] = useState("");
