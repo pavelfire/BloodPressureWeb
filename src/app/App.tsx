@@ -10,7 +10,10 @@ import { createReading, deleteReading, listReadings, runSync, updateReading } fr
 import { readingCategory, validateReading } from "../core/validation/validation";
 
 const queryClient = new QueryClient();
-const DEFAULT_API_URL = import.meta.env.VITE_DEFAULT_API_URL || "http://localhost:8080";
+const PRODUCTION_API_URL = "https://apibp.eletmed.ru";
+const DEFAULT_API_URL = import.meta.env.DEV
+  ? (import.meta.env.VITE_DEFAULT_API_URL || "http://localhost:8080")
+  : PRODUCTION_API_URL;
 
 const emptyForm = { systolic: "", diastolic: "", pulse: "", note: "" };
 
