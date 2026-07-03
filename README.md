@@ -25,6 +25,11 @@ npm run test:e2e
 
 ## Production deploy (GitHub Actions + VPS)
 
+```bash
+git tag v0.0.1
+git push origin v0.0.1
+```
+
 Сборка выполняется в CI, сервер только скачивает готовый Docker-образ из GHCR.
 
 ### 1. GitHub Secrets
@@ -89,12 +94,14 @@ docker compose -f docker-compose.prod.yml --env-file .env up -d
 
 ### 3. Автодеплой
 
-При каждом push в `main`:
+При push тега `v*` (например `v0.0.1`):
 
 1. GitHub Actions запускает `npm test`
 2. Собирает Docker-образ с `VITE_DEFAULT_API_URL` из secrets
-3. Публикует образ в `ghcr.io/pavelfire/bloodpressureweb`
+3. Публикует образ в `ghcr.io/pavelfire/bloodpressureweb` (теги `latest` и версия, например `v0.0.1`)
 4. По SSH на сервере выполняет `docker compose pull && up -d`
+
+Повторный деплой существующего тега: Actions → Deploy → Run workflow → указать тег.
 
 Проверка:
 
