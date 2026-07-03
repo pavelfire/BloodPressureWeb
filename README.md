@@ -91,6 +91,11 @@ echo YOUR_GITHUB_PAT | docker login ghcr.io -u YOUR_GITHUB_USERNAME --password-s
 docker compose -f docker-compose.prod.yml --env-file .env pull
 docker compose -f docker-compose.prod.yml --env-file .env up -d
 ```
+так же вариант
+docker build \
+  --build-arg VITE_DEFAULT_API_URL=https://apibp.tmp.ru \
+  -t ghcr.io/pavelfire/bloodpressureweb:latest .
+docker compose -f docker-compose.prod.yml --env-file .env up -d
 
 ### 3. Автодеплой
 
