@@ -23,11 +23,25 @@ npm test
 npm run test:e2e
 ```
 
-## Production (VPS + nginx-proxy)
+## Production deploy (GitHub Actions + VPS)
 
-На том же сервере, где уже развёрнут [BloodPressureBackend](https://github.com/pavelfire/BloodPressureBackend) с [jwilder/nginx-proxy](https://github.com/nginx-proxy/nginx-proxy) и Let's Encrypt (Docker-сеть `web`).
+Сборка выполняется в CI, сервер только скачивает готовый Docker-образ из GHCR.
 
-### 1. Подготовка на сервере
+### 1. GitHub Secrets
+
+В репозитории `BloodPressureWeb` → Settings → Secrets and variables → Actions:
+
+| Secret | Описание |
+|--------|----------|
+| `VITE_DEFAULT_API_URL` | URL API без `/api/v1`, например `https://apibp.tmp.ru` |
+| `SSH_HOST` | IP или домен VPS |
+| `SSH_USER` | пользователь SSH |
+| `SSH_PRIVATE_KEY` | приватный SSH-ключ для деплоя |
+| `DEPLOY_PATH` | (опционально) путь на сервере, по умолчанию `~/BloodPressureWeb` |
+
+### 2. Подготовка сервера (один раз)
+
+На VPS, где уже работает [BloodPressureBackend](https://github.com/pavelfire/BloodPressureBackend) с [nginx-proxy](https://github.com/nginx-proxy/nginx-proxy) и Docker-сетью `web`:
 
 ```bash
 git clone https://github.com/pavelfire/BloodPressureWeb.git
@@ -39,16 +53,32 @@ cp .env.example .env
 
 | Переменная | Описание |
 |------------|----------|
-| `VITE_DEFAULT_API_URL` | URL API без `/api/v1`, например `https://apibp.tmp.ru` |
+| `WEB_IMAGE` | образ из GHCR, например `ghcr.io/pavelfire/bloodpressureweb:latest` |
 | `VIRTUAL_HOST` | домен веб-приложения, например `bp.tmp.ru` |
 | `LETSENCRYPT_HOST` | тот же домен для SSL |
 | `LETSENCRYPT_EMAIL` | email для Let's Encrypt |
 
-### 2. Запуск
+Если репозиторий приватный, на сервере один раз выполните login в GHCR:
 
 ```bash
-docker compose -f docker-compose.prod.yml --env-file .env up -d --build
+echo YOUR_GITHUB_PAT | docker login ghcr.io -u YOUR_GITHUB_USERNAME --password-stdin
 ```
+
+Первый запуск:
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env pull
+docker compose -f docker-compose.prod.yml --env-file .env up -d
+```
+
+### 3. Автодеплой
+
+При каждом push в `main`:
+
+1. GitHub Actions запускает `npm test`
+2. Собирает Docker-образ с `VITE_DEFAULT_API_URL` из secrets
+3. Публикует образ в `ghcr.io/pavelfire/bloodpressureweb`
+4. По SSH на сервере выполняет `docker compose pull && up -d`
 
 Проверка:
 
@@ -56,17 +86,15 @@ docker compose -f docker-compose.prod.yml --env-file .env up -d --build
 curl -I https://bp.tmp.ru
 ```
 
-В браузере откройте `https://bp.tmp.ru` — по умолчанию API уже указывает на production backend.
-
-### 3. Обновление после изменений
+### 4. Ручной деплой (без CI)
 
 ```bash
-git pull
-docker compose -f docker-compose.prod.yml --env-file .env up -d --build
+docker compose -f docker-compose.prod.yml --env-file .env pull
+docker compose -f docker-compose.prod.yml --env-file .env up -d
 ```
 
 ### CORS
 
 Убедитесь, что backend разрешает origin веб-приложения. В `BloodPressureBackend` для production можно задать `CORS_ORIGIN=https://bp.tmp.ru` или `*` для разработки.
 
-Файл `.env` с доменами на сервер не коммитить — он в `.gitignore`.
+Файл `.env` на сервер не коммитить — он в `.gitignore`.

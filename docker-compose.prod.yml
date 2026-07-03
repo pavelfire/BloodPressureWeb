@@ -1,9 +1,7 @@
 services:
   web:
-    build:
-      context: .
-      args:
-        VITE_DEFAULT_API_URL: ${VITE_DEFAULT_API_URL}
+    image: ${WEB_IMAGE}
+    pull_policy: always
     restart: unless-stopped
     expose:
       - "80"
