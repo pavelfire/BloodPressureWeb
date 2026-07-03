@@ -68,7 +68,7 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             DEPLOY_PATH="${{ secrets.DEPLOY_PATH }}"
-            if [ -z "$DEPLOY_PATH" ]; then DEPLOY_PATH="$HOME/BloodPressureWeb"; fi
+            if [ -z "$DEPLOY_PATH" ]; then DEPLOY_PATH="/opt/bloodpressure-web/BloodPressureWeb"; fi
             cd "$DEPLOY_PATH"
             docker compose -f docker-compose.prod.yml --env-file .env pull
             docker compose -f docker-compose.prod.yml --env-file .env up -d

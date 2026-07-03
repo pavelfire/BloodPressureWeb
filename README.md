@@ -37,13 +37,29 @@ npm run test:e2e
 | `SSH_HOST` | IP или домен VPS |
 | `SSH_USER` | пользователь SSH |
 | `SSH_PRIVATE_KEY` | приватный SSH-ключ для деплоя |
-| `DEPLOY_PATH` | (опционально) путь на сервере, по умолчанию `~/BloodPressureWeb` |
+| `DEPLOY_PATH` | путь на сервере; на production VPS: `/opt/bloodpressure-web/BloodPressureWeb` (fallback в CI, если secret не задан) |
 
 ### 2. Подготовка сервера (один раз)
 
-На VPS, где уже работает [BloodPressureBackend](https://github.com/pavelfire/BloodPressureBackend) с [nginx-proxy](https://github.com/nginx-proxy/nginx-proxy) и Docker-сетью `web`:
+На VPS, где уже работает [BloodPressureBackend](https://github.com/pavelfire/BloodPressureBackend) в `/opt/bloodpressure-api/BloodPressureBackend` с [nginx-proxy](https://github.com/nginx-proxy/nginx-proxy) и Docker-сетью `web`:
+
+**Deploy path на VPS:**
+
+```
+/opt/bloodpressure-web/BloodPressureWeb
+```
+
+Проверка после установки:
 
 ```bash
+ls /opt/bloodpressure-web/BloodPressureWeb/docker-compose.prod.yml
+```
+
+Установка:
+
+```bash
+mkdir -p /opt/bloodpressure-web
+cd /opt/bloodpressure-web
 git clone https://github.com/pavelfire/BloodPressureWeb.git
 cd BloodPressureWeb
 cp .env.example .env
@@ -89,6 +105,7 @@ curl -I https://bp.tmp.ru
 ### 4. Ручной деплой (без CI)
 
 ```bash
+cd /opt/bloodpressure-web/BloodPressureWeb
 docker compose -f docker-compose.prod.yml --env-file .env pull
 docker compose -f docker-compose.prod.yml --env-file .env up -d
 ```
