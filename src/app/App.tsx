@@ -76,7 +76,7 @@ function AppInner() {
         </header>
         {error && <p className="error">{error}</p>}
         <Routes>
-          <Route path="/auth" element={<AuthPage api={api} session={session} setSession={setSession} />} />
+          <Route path="/auth" element={<AuthPage api={api} session={session} setSession={setSession} serverUrl={serverUrl} setServerUrl={setServerUrl} apiConnection={apiConnection} />} />
           <Route path="/" element={<Protected session={session}><HomePage readings={readings} /></Protected>} />
           <Route path="/history" element={<Protected session={session}><HistoryPage readings={readings.filter((r) => (r.note ?? "").toLowerCase().includes(search.toLowerCase()))} search={search} onSearch={setSearch} onDelete={async (r) => { await deleteReading(r, session, setSession); await refreshReadings(); }} /></Protected>} />
           <Route path="/add" element={<Protected session={session}><AddEditPage strict={strictValidation} onSave={async (form) => { await createReading(form); await refreshReadings(); }} /></Protected>} />
@@ -121,7 +121,20 @@ function ApiStatusIndicator({ status, serverUrl, lastCheckedAt }: { status: ApiC
   );
 }
 
-function AuthPage({ api, session, setSession }: { api: ApiClient; session: SessionState; setSession: (s: SessionState) => void }) {
+function ServerUrlSettings({ serverUrl, setServerUrl, apiConnection }: { serverUrl: string; setServerUrl: (v: string) => void; apiConnection: ReturnType<typeof useApiConnectionStatus> }) {
+  return (
+    <div className="server-url-settings">
+      <ApiStatusIndicator status={apiConnection.status} serverUrl={serverUrl} lastCheckedAt={apiConnection.lastCheckedAt} />
+      <button type="button" onClick={() => void apiConnection.check()}>Проверить API</button>
+      <label>
+        URL сервера
+        <input value={serverUrl} onChange={(e) => setServerUrl(e.target.value)} placeholder="https://apibp.example.ru" />
+      </label>
+    </div>
+  );
+}
+
+function AuthPage({ api, session, setSession, serverUrl, setServerUrl, apiConnection }: { api: ApiClient; session: SessionState; setSession: (s: SessionState) => void; serverUrl: string; setServerUrl: (v: string) => void; apiConnection: ReturnType<typeof useApiConnectionStatus> }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isRegister, setIsRegister] = useState(false);
@@ -138,7 +151,17 @@ function AuthPage({ api, session, setSession }: { api: ApiClient; session: Sessi
       setError(isRegister ? "Ошибка регистрации" : "Неверный email или пароль");
     }
   };
-  return <section><h2>{isRegister ? "Register" : "Login"}</h2><input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" /><input value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" type="password" /><button onClick={submit}>{isRegister ? "Register" : "Login"}</button><button onClick={() => setIsRegister(!isRegister)}>Switch</button>{error && <p className="error">{error}</p>}</section>;
+  return (
+    <section>
+      <h2>{isRegister ? "Register" : "Login"}</h2>
+      <ServerUrlSettings serverUrl={serverUrl} setServerUrl={setServerUrl} apiConnection={apiConnection} />
+      <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" />
+      <input value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" type="password" />
+      <button onClick={submit}>{isRegister ? "Register" : "Login"}</button>
+      <button onClick={() => setIsRegister(!isRegister)}>Switch</button>
+      {error && <p className="error">{error}</p>}
+    </section>
+  );
 }
 
 function HomePage({ readings }: { readings: BloodPressureReading[] }) {
@@ -230,7 +253,7 @@ function ExportPage({ readings }: { readings: BloodPressureReading[] }) {
 }
 
 function SettingsPage({ serverUrl, setServerUrl, strictValidation, setStrictValidation, onSync, session, setSession, api, apiConnection }: { serverUrl: string; setServerUrl: (v: string) => void; strictValidation: boolean; setStrictValidation: (v: boolean) => void; onSync: () => Promise<void>; session: SessionState; setSession: (s: SessionState) => void; api: ApiClient; apiConnection: ReturnType<typeof useApiConnectionStatus>; }) {
-  return <section><h2>Settings</h2><ApiStatusIndicator status={apiConnection.status} serverUrl={serverUrl} lastCheckedAt={apiConnection.lastCheckedAt} /><button onClick={() => void apiConnection.check()}>Проверить API</button><label>Server URL<input value={serverUrl} onChange={(e) => setServerUrl(e.target.value)} /></label><label><input type="checkbox" checked={strictValidation} onChange={(e) => setStrictValidation(e.target.checked)} />Validate fields on save</label><button onClick={onSync}>Sync now</button><button onClick={async () => { try { if (session.refreshToken) await api.logout({ refreshToken: session.refreshToken }); } finally { setSession({ accessToken: "", refreshToken: "", isLoggedIn: false, lastSyncAt: null, pendingDeletedServerIds: [] }); } }}>Logout</button></section>;
+  return <section><h2>Settings</h2><ServerUrlSettings serverUrl={serverUrl} setServerUrl={setServerUrl} apiConnection={apiConnection} /><label><input type="checkbox" checked={strictValidation} onChange={(e) => setStrictValidation(e.target.checked)} />Validate fields on save</label><button onClick={onSync}>Sync now</button><button onClick={async () => { try { if (session.refreshToken) await api.logout({ refreshToken: session.refreshToken }); } finally { setSession({ accessToken: "", refreshToken: "", isLoggedIn: false, lastSyncAt: null, pendingDeletedServerIds: [] }); } }}>Logout</button></section>;
 }
 
 function downloadBlob(blob: Blob, fileName: string) {
