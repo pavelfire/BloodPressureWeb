@@ -100,6 +100,14 @@ const API_STATUS_LABEL: Record<ApiConnectionStatus, string> = {
   offline: "API недоступен",
 };
 
+const CATEGORY_LABEL = {
+  NORMAL: "Норма",
+  ELEVATED: "Повышенное",
+  STAGE1: "Стадия 1",
+  STAGE2: "Стадия 2",
+  CRISIS: "Криз",
+} as const;
+
 function ApiStatusIndicator({ status, serverUrl, lastCheckedAt }: { status: ApiConnectionStatus; serverUrl: string; lastCheckedAt: Date | null }) {
   const title = lastCheckedAt
     ? `${API_STATUS_LABEL[status]} · ${serverUrl} · проверено ${lastCheckedAt.toLocaleTimeString()}`
@@ -140,7 +148,33 @@ function HomePage({ readings }: { readings: BloodPressureReading[] }) {
 }
 
 function HistoryPage({ readings, search, onSearch, onDelete }: { readings: BloodPressureReading[]; search: string; onSearch: (v: string) => void; onDelete: (r: BloodPressureReading) => Promise<void>; }) {
-  return <section><h2>History</h2><input value={search} onChange={(e) => onSearch(e.target.value)} placeholder="Search notes" />{readings.map((r) => <article key={r.id}><Link to={`/edit/${r.id}`}>{new Date(r.measuredAt).toLocaleString()} - {r.systolic}/{r.diastolic}</Link><button onClick={() => onDelete(r)}>Delete</button></article>)}</section>;
+  return (
+    <section>
+      <h2>History</h2>
+      <input value={search} onChange={(e) => onSearch(e.target.value)} placeholder="Search notes" />
+      {readings.map((r) => {
+        const noteOnly = r.systolic === 0 && r.diastolic === 0;
+        return (
+          <article key={r.id} className="history-item">
+            <Link to={`/edit/${r.id}`} className="history-item-body">
+              <time className="history-item-time">{new Date(r.measuredAt).toLocaleString()}</time>
+              {noteOnly ? (
+                <p className="history-item-bp">Комментарий</p>
+              ) : (
+                <>
+                  <p className="history-item-bp">{r.systolic}/{r.diastolic}</p>
+                  {r.pulse != null && <p className="history-item-meta">Пульс: {r.pulse}</p>}
+                  <p className="history-item-meta">{CATEGORY_LABEL[readingCategory(r)]}</p>
+                </>
+              )}
+              {r.note && <p className="history-item-note">{r.note}</p>}
+            </Link>
+            <button onClick={() => onDelete(r)}>Delete</button>
+          </article>
+        );
+      })}
+    </section>
+  );
 }
 
 function AddEditPage({ strict, onSave }: { strict: boolean; onSave: (r: Omit<BloodPressureReading, "id" | "serverId" | "syncStatus" | "updatedAt" | "deletedAt">) => Promise<void>; }) {
