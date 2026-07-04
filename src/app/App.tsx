@@ -11,10 +11,16 @@ import { createReading, deleteReading, listReadings, runSync, updateReading } fr
 import { readingCategory, validateReading } from "../core/validation/validation";
 
 const queryClient = new QueryClient();
-const PRODUCTION_API_URL = "https://apibp.eletmed.ru";
-const DEFAULT_API_URL = import.meta.env.DEV
-  ? (import.meta.env.VITE_DEFAULT_API_URL || "http://localhost:8080")
-  : PRODUCTION_API_URL;
+const DEFAULT_API_URL =
+  import.meta.env.VITE_DEFAULT_API_URL ??
+  (import.meta.env.DEV ? "http://localhost:8080" : "https://apibp.eletmed.ru");
+
+function loadServerUrl(): string {
+  const stored = localStorage.getItem("bpw_server_url");
+  if (!stored) return DEFAULT_API_URL;
+  if (!import.meta.env.DEV && /localhost|127\.0\.0\.1/i.test(stored)) return DEFAULT_API_URL;
+  return stored;
+}
 
 const emptyForm = { systolic: "", diastolic: "", pulse: "", note: "" };
 
@@ -29,7 +35,7 @@ function useSession() {
 
 function AppInner() {
   const { session, setSession } = useSession();
-  const [serverUrl, setServerUrl] = useState(localStorage.getItem("bpw_server_url") ?? DEFAULT_API_URL);
+  const [serverUrl, setServerUrl] = useState(loadServerUrl);
   const [strictValidation, setStrictValidation] = useState(localStorage.getItem("bpw_strict_validation") !== "false");
   const [readings, setReadings] = useState<BloodPressureReading[]>([]);
   const [error, setError] = useState("");
