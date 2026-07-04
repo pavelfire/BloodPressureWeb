@@ -5,6 +5,7 @@ import { Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YA
 import type { BloodPressureReading, SessionState } from "../core/types";
 import { loadSession, saveSession } from "../core/auth/sessionStore";
 import { ApiClient } from "../core/api/client";
+import { useApiConnectionStatus, type ApiConnectionStatus } from "../core/api/useApiConnectionStatus";
 import { calculateAnalytics, type AnalyticsPeriod } from "../core/analytics/analytics";
 import { createReading, deleteReading, listReadings, runSync, updateReading } from "../core/sync/sync";
 import { readingCategory, validateReading } from "../core/validation/validation";
@@ -34,6 +35,7 @@ function AppInner() {
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const api = useMemo(() => new ApiClient(() => serverUrl, () => session, setSession), [serverUrl, session]);
+  const apiConnection = useApiConnectionStatus(api, serverUrl);
 
   useEffect(() => {
     listReadings().then(setReadings);
@@ -60,6 +62,7 @@ function AppInner() {
       <div className="layout">
         <header>
           <h1>BloodPressureWeb</h1>
+          <ApiStatusIndicator status={apiConnection.status} serverUrl={serverUrl} lastCheckedAt={apiConnection.lastCheckedAt} />
           <nav>
             <Link to="/">Home</Link><Link to="/history">History</Link><Link to="/add">Add</Link>
             <Link to="/analytics">Analytics</Link><Link to="/export">Export</Link><Link to="/settings">Settings</Link>
@@ -74,7 +77,7 @@ function AppInner() {
           <Route path="/edit/:id" element={<Protected session={session}><EditWrapper readings={readings} strict={strictValidation} onUpdate={async (r) => { await updateReading(r); await refreshReadings(); }} /></Protected>} />
           <Route path="/analytics" element={<Protected session={session}><AnalyticsPage readings={readings} /></Protected>} />
           <Route path="/export" element={<Protected session={session}><ExportPage readings={readings} /></Protected>} />
-          <Route path="/settings" element={<Protected session={session}><SettingsPage serverUrl={serverUrl} setServerUrl={setServerUrl} strictValidation={strictValidation} setStrictValidation={setStrictValidation} onSync={doSync} session={session} setSession={setSession} api={api} /></Protected>} />
+          <Route path="/settings" element={<Protected session={session}><SettingsPage serverUrl={serverUrl} setServerUrl={setServerUrl} strictValidation={strictValidation} setStrictValidation={setStrictValidation} onSync={doSync} session={session} setSession={setSession} api={api} apiConnection={apiConnection} /></Protected>} />
         </Routes>
       </div>
     </BrowserRouter>
@@ -83,6 +86,25 @@ function AppInner() {
 
 function Protected({ session, children }: { session: SessionState; children: React.ReactNode }) {
   return session.isLoggedIn ? <>{children}</> : <Navigate to="/auth" replace />;
+}
+
+const API_STATUS_LABEL: Record<ApiConnectionStatus, string> = {
+  checking: "Проверка API…",
+  online: "API доступен",
+  offline: "API недоступен",
+};
+
+function ApiStatusIndicator({ status, serverUrl, lastCheckedAt }: { status: ApiConnectionStatus; serverUrl: string; lastCheckedAt: Date | null }) {
+  const title = lastCheckedAt
+    ? `${API_STATUS_LABEL[status]} · ${serverUrl} · проверено ${lastCheckedAt.toLocaleTimeString()}`
+    : `${API_STATUS_LABEL[status]} · ${serverUrl}`;
+  return (
+    <div className={`api-status api-status--${status}`} title={title}>
+      <span className="api-status-dot" aria-hidden />
+      <span>{API_STATUS_LABEL[status]}</span>
+      <span className="api-status-url">{serverUrl}</span>
+    </div>
+  );
 }
 
 function AuthPage({ api, session, setSession }: { api: ApiClient; session: SessionState; setSession: (s: SessionState) => void }) {
@@ -167,8 +189,8 @@ function ExportPage({ readings }: { readings: BloodPressureReading[] }) {
   return <section><h2>Export/Import</h2><button onClick={exportJson}>Export JSON</button><button onClick={exportCsv}>Export CSV</button><button onClick={exportXlsx}>Export XLSX</button><input type="file" accept=".json" onChange={async (e) => { const file = e.target.files?.[0]; if (!file) return; const parsed = JSON.parse(await file.text()) as BloodPressureReading[]; for (const item of parsed) { await createReading({ systolic: item.systolic, diastolic: item.diastolic, pulse: item.pulse, measuredAt: item.measuredAt, note: item.note }); } window.location.reload(); }} /></section>;
 }
 
-function SettingsPage({ serverUrl, setServerUrl, strictValidation, setStrictValidation, onSync, session, setSession, api }: { serverUrl: string; setServerUrl: (v: string) => void; strictValidation: boolean; setStrictValidation: (v: boolean) => void; onSync: () => Promise<void>; session: SessionState; setSession: (s: SessionState) => void; api: ApiClient; }) {
-  return <section><h2>Settings</h2><label>Server URL<input value={serverUrl} onChange={(e) => setServerUrl(e.target.value)} /></label><label><input type="checkbox" checked={strictValidation} onChange={(e) => setStrictValidation(e.target.checked)} />Validate fields on save</label><button onClick={onSync}>Sync now</button><button onClick={async () => { try { if (session.refreshToken) await api.logout({ refreshToken: session.refreshToken }); } finally { setSession({ accessToken: "", refreshToken: "", isLoggedIn: false, lastSyncAt: null, pendingDeletedServerIds: [] }); } }}>Logout</button></section>;
+function SettingsPage({ serverUrl, setServerUrl, strictValidation, setStrictValidation, onSync, session, setSession, api, apiConnection }: { serverUrl: string; setServerUrl: (v: string) => void; strictValidation: boolean; setStrictValidation: (v: boolean) => void; onSync: () => Promise<void>; session: SessionState; setSession: (s: SessionState) => void; api: ApiClient; apiConnection: ReturnType<typeof useApiConnectionStatus>; }) {
+  return <section><h2>Settings</h2><ApiStatusIndicator status={apiConnection.status} serverUrl={serverUrl} lastCheckedAt={apiConnection.lastCheckedAt} /><button onClick={() => void apiConnection.check()}>Проверить API</button><label>Server URL<input value={serverUrl} onChange={(e) => setServerUrl(e.target.value)} /></label><label><input type="checkbox" checked={strictValidation} onChange={(e) => setStrictValidation(e.target.checked)} />Validate fields on save</label><button onClick={onSync}>Sync now</button><button onClick={async () => { try { if (session.refreshToken) await api.logout({ refreshToken: session.refreshToken }); } finally { setSession({ accessToken: "", refreshToken: "", isLoggedIn: false, lastSyncAt: null, pendingDeletedServerIds: [] }); } }}>Logout</button></section>;
 }
 
 function downloadBlob(blob: Blob, fileName: string) {

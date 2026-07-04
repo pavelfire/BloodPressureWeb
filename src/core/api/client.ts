@@ -67,6 +67,22 @@ export class ApiClient {
     return syncSchema.parse(data);
   }
 
+  async checkHealth(timeoutMs = 5000): Promise<boolean> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(`${this.baseUrl().replace(/\/$/, "")}/health`, {
+        method: "GET",
+        signal: controller.signal,
+      });
+      return res.ok;
+    } catch {
+      return false;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
   private async postAuth(path: string, body: AuthCredentialsDto): Promise<TokenPairDto> {
     const data = await this.request(path, {
       method: "POST",
